@@ -1,17 +1,21 @@
-# Nama workflow yang akan muncul di tab "Actions" GitHub
-name: Build and Release APK
+# Nama workflow
+name: Publish APK to GitHub Packages
 
-# Pemicu workflow: berjalan saat ada tag baru yang diawali dengan 'v'
+# Pemicu: berjalan saat ada push ke branch 'main'
 on:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - main
 
 # Pekerjaan yang akan dilakukan
 jobs:
-  build:
-    # Menggunakan environment terbaru dari Ubuntu
+  publish:
     runs-on: ubuntu-latest
+    
+    # Izin yang diperlukan agar workflow bisa menulis ke Packages
+    permissions:
+      contents: read
+      packages: write
 
     steps:
       # Langkah 1: Checkout kode dari repositori
@@ -24,19 +28,17 @@ jobs:
         with:
           java-version: '11'
           distribution: 'temurin'
-          cache: gradle
 
       # Langkah 3: Setup Gradle
+      # Ini akan meng-cache dependensi Gradle untuk mempercepat build berikutnya
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
 
-      # Langkah 4: Membuat file APK release
-      - name: Build with Gradle
-        run: ./gradlew assembleRelease
-
-      # Langkah 5: Mengunggah APK sebagai artefak rilis
-      # File APK akan muncul di halaman "Releases" GitHub Anda
-      - name: Upload APK to Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: app/build/outputs/apk/release/app-release-unsigned.apk
+      # Langkah 4: Menjalankan tugas 'publish' dari Gradle
+      # Tugas ini akan mem-build dan mengunggah APK ke GitHub Packages
+      - name: Publish to GitHub Packages
+        run: ./gradlew publish
+        env:
+          # Token ini disediakan secara otomatis oleh GitHub Actions
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_ACTOR: ${{ github.actor }}
