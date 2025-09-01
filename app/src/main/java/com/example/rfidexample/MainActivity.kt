@@ -8,6 +8,9 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -20,7 +23,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Inventory2
-// import androidx.compose.material.icons.filled.Nfc // Already imported by HomeMenuItem if it used an Icon, but not directly by HomeMenu for the logo anymore.
 import androidx.compose.material.icons.filled.PlaylistAddCheck
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -31,19 +33,22 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-// import androidx.compose.ui.res.painterResource // No longer needed for the logo
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
-import coil.compose.AsyncImage // Added for Coil
+import coil.compose.AsyncImage
 import com.example.rfidexample.data.DataStoreManager
 import com.example.rfidexample.data.model.BorrowLog
+import com.example.rfidexample.data.repository.BorrowLogRepository
 import com.example.rfidexample.ui.NfcReaderScreen
 import com.example.rfidexample.ui.PeminjamanBarangScreen
+import com.example.rfidexample.ui.HistoryScreen
+import com.example.rfidexample.ui.AttendanceHistoryScreen // Import AttendanceHistoryScreen
 import com.example.rfidexample.ui.theme.RFIDExampleTheme
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -59,7 +64,8 @@ class MainActivity : ComponentActivity() {
 
     private var borrowLogs by mutableStateOf(listOf<BorrowLog>())
     private var scannedBorrowTagId by mutableStateOf<String?>(null)
-    private var currentScreen by mutableStateOf("home") // "home", "attendance", "borrow"
+    // Add "attendance_history" to possible screens
+    private var currentScreen by mutableStateOf("home") // "home", "attendance", "attendance_history", "borrow", "borrow_history"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -74,13 +80,57 @@ class MainActivity : ComponentActivity() {
             tagHistory = loadedHistory
             val loadedBorrowLogs = DataStoreManager.loadBorrowLogs(context)
             borrowLogs = loadedBorrowLogs
+            BorrowLogRepository.clear()
+            loadedBorrowLogs.forEach { log ->
+                BorrowLogRepository.addLog(log)
+            }
         }
 
         setContent {
             RFIDExampleTheme {
                 AnimatedContent(
                     targetState = currentScreen,
-                    label = "ScreenTransition"
+                    label = "ScreenTransition",
+                    transitionSpec = {
+                        val screenOrder = mapOf(
+                            "home" to 0,
+                            "attendance" to 1,
+                            "attendance_history" to 2, // Attendance history is child of attendance
+                            "borrow" to 1,
+                            "borrow_history" to 2 // Borrow history is child of borrow
+                        )
+
+                        val initialScreenIndex = screenOrder[initialState] ?: -1
+                        val targetScreenIndex = screenOrder[targetState] ?: -1
+                        
+                        // Determine direction based on defined hierarchy first
+                        val goingForward = when {
+                            // Home to direct children
+                            initialState == "home" && (targetState == "attendance" || targetState == "borrow") -> true
+                            // Attendance to its history
+                            initialState == "attendance" && targetState == "attendance_history" -> true
+                            // Borrow to its history
+                            initialState == "borrow" && targetState == "borrow_history" -> true
+                            // Attendance history back to attendance
+                            initialState == "attendance_history" && targetState == "attendance" -> false
+                             // Borrow history back to borrow
+                            initialState == "borrow_history" && targetState == "borrow" -> false
+                            // Direct children back to Home
+                            (initialState == "attendance" || initialState == "borrow") && targetState == "home" -> false
+                            // Fallback based on indices if hierarchy is not explicitly defined above
+                            initialScreenIndex != -1 && targetScreenIndex != -1 -> targetScreenIndex > initialScreenIndex
+                            // Default (e.g. if one screen is not in screenOrder)
+                            else -> true 
+                        }
+
+                        if (goingForward) {
+                            slideInHorizontally { fullWidth -> fullWidth } togetherWith
+                                    slideOutHorizontally { fullWidth -> -fullWidth }
+                        } else {
+                            slideInHorizontally { fullWidth -> -fullWidth } togetherWith
+                                    slideOutHorizontally { fullWidth -> fullWidth }
+                        }
+                    }
                 ) { screen ->
                     when (screen) {
                         "home" -> {
@@ -98,7 +148,7 @@ class MainActivity : ComponentActivity() {
                                     tagData = tagData,
                                     currentTagId = currentTagId,
                                     tagNicknames = tagNicknames,
-                                    addNickname = { id: String, nickname: String ->
+                                    addNickname = { id, nickname ->
                                         tagNicknames[id] = nickname
                                         lifecycleScope.launch {
                                             DataStoreManager.saveNicknames(applicationContext, tagNicknames.toMap())
@@ -108,7 +158,7 @@ class MainActivity : ComponentActivity() {
                                         currentTagId = null
                                     },
                                     tagHistory = tagHistory,
-                                    updateHistory = { newHistory: List<String> ->
+                                    updateHistory = { newHistory -> // This is for clearing history from NfcReaderScreen directly
                                         tagHistory = newHistory
                                         lifecycleScope.launch {
                                             DataStoreManager.saveHistory(applicationContext, tagHistory)
@@ -127,9 +177,27 @@ class MainActivity : ComponentActivity() {
                                             DataStoreManager.saveNicknames(applicationContext, tagNicknames.toMap())
                                         }
                                     },
+                                    // Add navigation to attendance history
+                                    onNavigateToHistory = { currentScreen = "attendance_history" },
                                     modifier = Modifier.padding(innerPadding)
                                 )
                             }
+                        }
+                        "attendance_history" -> {
+                            androidx.activity.compose.BackHandler(true) {
+                                currentScreen = "attendance"
+                            }
+                            AttendanceHistoryScreen(
+                                tagHistory = tagHistory,
+                                nicknames = tagNicknames,
+                                onBack = { currentScreen = "attendance" },
+                                onClearHistory = {
+                                    tagHistory = emptyList()
+                                    lifecycleScope.launch {
+                                        DataStoreManager.saveHistory(applicationContext, tagHistory)
+                                    }
+                                }
+                            )
                         }
                         "borrow" -> {
                             androidx.activity.compose.BackHandler(true) {
@@ -137,20 +205,18 @@ class MainActivity : ComponentActivity() {
                             }
                             PeminjamanBarangScreen(
                                 borrowLogs = borrowLogs,
-                                onBorrow = { tagId: String, itemName: String ->
-                                    val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
-                                    val newLog = BorrowLog(tagId, itemName, timestamp, false, null)
-                                    borrowLogs = borrowLogs + newLog
+                                onBorrow = { tagId, itemName ->
+                                    val newLog = BorrowLog(tagId = tagId, itemName = itemName, borrowTimestamp = System.currentTimeMillis())
+                                    BorrowLogRepository.addLog(newLog)
+                                    borrowLogs = BorrowLogRepository.getLogs()
                                     lifecycleScope.launch {
                                         DataStoreManager.saveBorrowLogs(applicationContext, borrowLogs)
                                     }
                                     scannedBorrowTagId = null
                                 },
-                                onReturn = { log: BorrowLog ->
-                                    val updatedLogs = borrowLogs.map {
-                                        if (it == log) it.copy(isReturned = true, returnTimestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())) else it
-                                    }
-                                    borrowLogs = updatedLogs
+                                onReturn = { logToReturn ->
+                                    BorrowLogRepository.recordReturn(logToReturn)
+                                    borrowLogs = BorrowLogRepository.getLogs()
                                     lifecycleScope.launch {
                                         DataStoreManager.saveBorrowLogs(applicationContext, borrowLogs)
                                     }
@@ -158,7 +224,32 @@ class MainActivity : ComponentActivity() {
                                 scannedTagId = scannedBorrowTagId,
                                 nicknames = tagNicknames,
                                 modifier = Modifier.fillMaxSize(),
-                                onBack = { currentScreen = "home" }
+                                onBack = { currentScreen = "home" },
+                                onNavigateToHistory = { currentScreen = "borrow_history" }
+                            )
+                        }
+                        "borrow_history" -> {
+                            androidx.activity.compose.BackHandler(true) {
+                                currentScreen = "borrow"
+                            }
+                            HistoryScreen( // This is for borrow history
+                                borrowLogs = borrowLogs,
+                                nicknames = tagNicknames,
+                                onBack = { currentScreen = "borrow" },
+                                onClearHistory = {
+                                    BorrowLogRepository.clear()
+                                    borrowLogs = BorrowLogRepository.getLogs()
+                                    lifecycleScope.launch {
+                                        DataStoreManager.saveBorrowLogs(applicationContext, borrowLogs)
+                                    }
+                                },
+                                onDeleteLog = { logToDelete ->
+                                    BorrowLogRepository.deleteLog(logToDelete)
+                                    borrowLogs = BorrowLogRepository.getLogs()
+                                    lifecycleScope.launch {
+                                        DataStoreManager.saveBorrowLogs(applicationContext, borrowLogs)
+                                    }
+                                }
                             )
                         }
                     }
@@ -190,9 +281,8 @@ class MainActivity : ComponentActivity() {
                 scannedBorrowTagId = uid
             } else if (currentScreen == "attendance") {
                 val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
-                val dateOnly = timestamp.substring(0, 10) // yyyy-MM-dd
-                // Buat map untuk cek UID+date
-                val historyMap = mutableMapOf<String, String>() // key: UID+date, value: timestamp
+                val dateOnly = timestamp.substring(0, 10)
+                val historyMap = mutableMapOf<String, String>()
                 tagHistory.forEach { entry ->
                     val parts = entry.split(",")
                     if (parts.size == 2) {
@@ -201,9 +291,7 @@ class MainActivity : ComponentActivity() {
                         historyMap["$entryUid|$entryDate"] = parts[1]
                     }
                 }
-                // Update/replace jika sudah ada, atau tambah jika belum
                 historyMap["$uid|$dateOnly"] = timestamp
-                // Konversi kembali ke list format "UID,timestamp", urutkan dari yang terbaru
                 val newHistory = historyMap.entries
                     .sortedByDescending { it.value }
                     .map { entry ->
@@ -229,11 +317,12 @@ class MainActivity : ComponentActivity() {
 
     @Deprecated("Use BackHandler in Composable instead or manage currentScreen directly")
     override fun onBackPressed() {
-        if (currentScreen == "attendance" || currentScreen == "borrow") {
-            currentScreen = "home"
-            // super.onBackPressed() // Removed as BackHandler is used
-        } else {
-            super.onBackPressed()
+        // Updated BackHandler logic for new screens
+        when (currentScreen) {
+            "attendance_history" -> currentScreen = "attendance"
+            "borrow_history" -> currentScreen = "borrow"
+            "attendance", "borrow" -> currentScreen = "home"
+            else -> super.onBackPressed() // Fallback to default for "home" or other unexpected states
         }
     }
 }
@@ -249,7 +338,7 @@ fun HomeMenuItem(
     Surface(
         modifier = modifier
             .clickable(onClick = onClick)
-            .padding(4.dp), // Reduced padding around Surface
+            .padding(4.dp),
         shape = MaterialTheme.shapes.medium,
         tonalElevation = 2.dp
     ) {
@@ -257,8 +346,8 @@ fun HomeMenuItem(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
             modifier = Modifier
-                .padding(vertical = 24.dp, horizontal = 16.dp) // Adjusted padding inside
-                .fillMaxWidth() // Ensure items in Row take available width if weight is used
+                .padding(vertical = 24.dp, horizontal = 16.dp)
+                .fillMaxWidth()
         ) {
             Icon(
                 imageVector = icon,
@@ -266,10 +355,10 @@ fun HomeMenuItem(
                 modifier = Modifier.size(48.dp),
                 tint = MaterialTheme.colorScheme.primary
             )
-            Spacer(modifier = Modifier.height(12.dp)) // Increased spacer
+            Spacer(modifier = Modifier.height(12.dp))
             Text(
                 text = text,
-                style = MaterialTheme.typography.titleMedium, // Slightly larger text
+                style = MaterialTheme.typography.titleMedium,
                 textAlign = TextAlign.Center
             )
         }
@@ -287,24 +376,24 @@ fun HomeMenu(
             .fillMaxSize()
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Top 
+        verticalArrangement = Arrangement.Top
     ) {
-        Spacer(modifier = Modifier.height(32.dp)) // Spacer at the top
+        Spacer(modifier = Modifier.height(32.dp))
         AsyncImage(
             model = "https://cdn.digilabdte.com/u/mdh8f2.png",
             contentDescription = "App Logo",
             modifier = Modifier.size(100.dp)
         )
-        Spacer(modifier = Modifier.height(32.dp)) // Increased spacer
+        Spacer(modifier = Modifier.height(32.dp))
         Text(
             text = "Pilih Menu:",
-            style = MaterialTheme.typography.titleLarge, // Larger title
-            modifier = Modifier.padding(bottom = 24.dp) // Increased bottom padding
+            style = MaterialTheme.typography.titleLarge,
+            modifier = Modifier.padding(bottom = 24.dp)
         )
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalAlignment = Alignment.Top 
+            verticalAlignment = Alignment.Top
         ) {
             HomeMenuItem(
                 text = "Absensi",
@@ -321,6 +410,6 @@ fun HomeMenu(
                 modifier = Modifier.weight(1f)
             )
         }
-        Spacer(modifier = Modifier.weight(1f)) // Pushes content up
+        Spacer(modifier = Modifier.weight(1f))
     }
 }

@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -23,7 +24,8 @@ fun PeminjamanBarangScreen(
     scannedTagId: String?,
     nicknames: Map<String, String>, // Tambahan parameter
     modifier: Modifier = Modifier,
-    onBack: (() -> Unit)? = null // Tambahkan opsional tombol kembali
+    onBack: (() -> Unit)? = null, // Tambahkan opsional tombol kembali
+    onNavigateToHistory: () -> Unit // Tambahkan callback untuk navigasi ke histori
 ) {
     var selectedItem by remember { mutableStateOf("") }
     val items = listOf("A", "B", "C", "D")
@@ -34,7 +36,15 @@ fun PeminjamanBarangScreen(
         topBar = {
             AppTopBar(
                 title = "Borrow Items",
-                onBack = onBack
+                onBack = onBack,
+                actions = {
+                    IconButton(onClick = onNavigateToHistory) {
+                        Icon(
+                            imageVector = Icons.Filled.History,
+                            contentDescription = "History"
+                        )
+                    }
+                }
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -103,30 +113,36 @@ fun PeminjamanBarangScreen(
                 Text("Active Borrows:", style = MaterialTheme.typography.titleLarge)
                 LazyColumn(modifier = Modifier.fillMaxWidth()) {
                     items(borrowLogs.filter { !it.isReturned }) { log ->
-                        Card(
-                            shape = MaterialTheme.shapes.medium,
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                            elevation = CardDefaults.cardElevation(2.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp)
-                        ) {
-                            Column(modifier = Modifier.padding(12.dp)) {
-                                val nickname = nicknames[log.tagId]
-                                if (nickname != null) {
-                                    Text("Name: $nickname", style = MaterialTheme.typography.bodyLarge)
-                                } else {
-                                    Text("Tag ID: ${log.tagId}", style = MaterialTheme.typography.bodyLarge)
-                                }
-                                Text("Item: ${log.itemName}", style = MaterialTheme.typography.bodyMedium)
-                                Text("Borrowed: ${log.borrowTimestamp}", style = MaterialTheme.typography.bodyMedium)
-                                Button(
-                                    onClick = { onReturn(log) },
-                                    modifier = Modifier.padding(top = 4.dp),
-                                    shape = MaterialTheme.shapes.small,
-                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                                ) {
-                                    Text("Confirm Return", style = MaterialTheme.typography.labelLarge)
+                        var visible by remember { mutableStateOf(true) }
+                        if (visible) {
+                            Card(
+                                shape = MaterialTheme.shapes.medium,
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                                elevation = CardDefaults.cardElevation(2.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp)
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    val nickname = nicknames[log.tagId]
+                                    if (nickname != null) {
+                                        Text("Name: $nickname", style = MaterialTheme.typography.bodyLarge)
+                                    } else {
+                                        Text("Tag ID: ${log.tagId}", style = MaterialTheme.typography.bodyLarge)
+                                    }
+                                    Text("Item: ${log.itemName}", style = MaterialTheme.typography.bodyMedium)
+                                    Text("Borrowed: ${log.borrowTimestamp}", style = MaterialTheme.typography.bodyMedium)
+                                    Button(
+                                        onClick = {
+                                            onReturn(log)
+                                            visible = false // Remove from active list after return
+                                        },
+                                        modifier = Modifier.padding(top = 4.dp),
+                                        shape = MaterialTheme.shapes.small,
+                                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                                    ) {
+                                        Text("Confirm Return", style = MaterialTheme.typography.labelLarge)
+                                    }
                                 }
                             }
                         }

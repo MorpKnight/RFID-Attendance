@@ -86,7 +86,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun onBorrow(tagId: String, itemName: String) {
-        val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
+        val timestamp = System.currentTimeMillis()
         val newLog = BorrowLog(tagId, itemName, timestamp, false, null)
         val updatedLogs = _borrowLogs.value + newLog
         _borrowLogs.value = updatedLogs
@@ -98,7 +98,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun onReturn(log: BorrowLog) {
         val updatedLogs = _borrowLogs.value.map {
-            if (it == log) it.copy(isReturned = true, returnTimestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())) else it
+            if (it == log) it.copy(isReturned = true, returnTimestamp = System.currentTimeMillis()) else it
         }
         _borrowLogs.value = updatedLogs
         viewModelScope.launch {
@@ -152,4 +152,3 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 }
-

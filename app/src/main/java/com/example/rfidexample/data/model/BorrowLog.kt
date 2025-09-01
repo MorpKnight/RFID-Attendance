@@ -6,8 +6,7 @@ import kotlinx.serialization.Serializable
 data class BorrowLog(
     val tagId: String,
     val itemName: String,
-    val borrowTimestamp: String, // yyyy-MM-dd HH:mm:ss
+    val borrowTimestamp: Long, // Changed to Long
     val isReturned: Boolean = false,
-    val returnTimestamp: String? = null
+    val returnTimestamp: Long? = null // Changed to Long?
 )
-

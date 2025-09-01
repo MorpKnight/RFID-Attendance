@@ -1,23 +1,26 @@
 package com.example.rfidexample.ui
 
 import android.app.Activity
-import android.content.Context
 import android.content.Intent
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState // Import rememberScrollState
+import androidx.compose.foundation.verticalScroll // Import verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ListAlt
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.Menu
+// import androidx.compose.material.icons.filled.Menu // Not used in this version
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.Color // Import Color
+import androidx.compose.ui.input.nestedscroll.nestedScroll // Import nestedScroll
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.example.rfidexample.ui.components.AppTopBar
 import com.example.rfidexample.ui.components.NicknameInput
 import com.example.rfidexample.ui.components.TagAttendanceList
 import kotlinx.coroutines.launch
@@ -30,25 +33,16 @@ fun NfcReaderScreen(
     tagNicknames: Map<String, String>,
     addNickname: (String, String) -> Unit,
     tagHistory: List<String>,
-    updateHistory: (List<String>) -> Unit, // Parameter type changed to List
+    updateHistory: (List<String>) -> Unit,
     clearNicknames: () -> Unit,
     updateAllNicknames: (updatedNicknames: Map<String, String>) -> Unit,
+    onNavigateToHistory: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
-
-    val launcher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            val newHistory = result.data?.getStringArrayListExtra("history")
-            if (newHistory != null) {
-                updateHistory(newHistory.toList()) // Convert to immutable List for state update
-            }
-        }
-    }
+    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(rememberTopAppBarState()) // Re-add scroll behavior
+    val columnScrollState = rememberScrollState() // State for the Column's scroll
 
     val dictionaryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
@@ -64,109 +58,135 @@ fun NfcReaderScreen(
             if (updatedNicknames != null) {
                 clearNicknames()
                 updateAllNicknames(updatedNicknames)
+                 coroutineScope.launch {
+                    snackbarHostState.showSnackbar("Nicknames updated from Dictionary")
+                }
             }
         }
     }
 
     Scaffold(
+        modifier = modifier
+            .fillMaxSize()
+            .nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
-            TopAppBar(
-                title = { Text("RFID Attendance", style = MaterialTheme.typography.titleLarge) },
+            MediumTopAppBar(
+                title = { Text("RFID Attendance") },
                 actions = {
                     IconButton(onClick = {
                         updateHistory(emptyList())
                         coroutineScope.launch {
-                            snackbarHostState.showSnackbar("History cleared")
+                            snackbarHostState.showSnackbar("Attendance history cleared")
                         }
                     }) {
-                        Icon(Icons.Filled.Delete, contentDescription = "Clear History")
+                        Icon(Icons.Filled.Delete, contentDescription = "Clear Attendance History")
                     }
-                }
+                },
+                scrollBehavior = scrollBehavior,
+                colors = TopAppBarDefaults.mediumTopAppBarColors(
+                    containerColor = Color.Transparent,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp)
+                )
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        modifier = modifier
     ) { innerPadding ->
-        Surface(
-            color = MaterialTheme.colorScheme.background,
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(12.dp)
                 .padding(innerPadding)
+                .padding(horizontal = 20.dp, vertical = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                modifier = Modifier.fillMaxSize()
-            ) {
-                Card(
-                    shape = MaterialTheme.shapes.large,
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(6.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(20.dp)) {
-                        Text(text = tagData, style = MaterialTheme.typography.headlineLarge)
-                    }
-                }
-                if (currentTagId != null && !tagNicknames.containsKey(currentTagId)) {
-                    NicknameInput(
-                        currentTagId = currentTagId,
-                        onSave = { nickname ->
-                            addNickname(currentTagId, nickname)
-                            coroutineScope.launch {
-                                snackbarHostState.showSnackbar("Nickname saved")
-                            }
+            // Nickname input section
+            if (currentTagId != null && !tagNicknames.containsKey(currentTagId)) {
+                NicknameInput(
+                    currentTagId = currentTagId,
+                    onSave = { nickname ->
+                        addNickname(currentTagId, nickname)
+                        coroutineScope.launch {
+                            snackbarHostState.showSnackbar("Nickname saved: $nickname")
                         }
-                    )
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            // Action Buttons section
+            Card(
+                shape = MaterialTheme.shapes.large,
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                elevation = CardDefaults.cardElevation(2.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.padding(16.dp)
+                ) {
                     Button(
-                        onClick = {
-                            val intent = Intent(context, Class.forName("com.example.rfidexample.HistoryActivity"))
-                            intent.putStringArrayListExtra("history", ArrayList(tagHistory))
-                            val nicknamesBundle = android.os.Bundle()
-                            tagNicknames.forEach { (id, nickname) ->
-                                nicknamesBundle.putString(id, nickname)
-                            }
-                            intent.putExtra("nicknames", nicknamesBundle)
-                            launcher.launch(intent)
-                        },
+                        onClick = onNavigateToHistory,
+                        modifier = Modifier.fillMaxWidth(),
                         shape = MaterialTheme.shapes.medium
                     ) {
                         Icon(Icons.Filled.History, contentDescription = null)
-                        Spacer(Modifier.width(6.dp))
-                        Text(text = "View History", style = MaterialTheme.typography.labelLarge)
+                        Spacer(Modifier.width(10.dp))
+                        Text("View Full Attendance History")
                     }
-                    Button(
+                    OutlinedButton(
                         onClick = {
-                            val intent = Intent(context, Class.forName("com.example.rfidexample.DictionaryActivity"))
+                            val intent = Intent()
+                            intent.setClassName("com.example.rfidexample", "com.example.rfidexample.DictionaryActivity")
                             intent.putExtra("nicknames", HashMap(tagNicknames))
                             dictionaryLauncher.launch(intent)
                         },
+                        modifier = Modifier.fillMaxWidth(),
                         shape = MaterialTheme.shapes.medium
                     ) {
-                        Icon(Icons.Filled.Menu, contentDescription = null)
-                        Spacer(Modifier.width(6.dp))
-                        Text("Dictionary", style = MaterialTheme.typography.labelLarge)
+                        Icon(Icons.AutoMirrored.Filled.ListAlt, contentDescription = null)
+                        Spacer(Modifier.width(10.dp))
+                        Text("Manage Nicknames (Dictionary)")
                     }
                 }
-                Button(
-                    onClick = {
-                        clearNicknames()
-                        coroutineScope.launch {
-                            snackbarHostState.showSnackbar("All nicknames cleared")
-                        }
-                    },
-                    shape = MaterialTheme.shapes.medium,
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                ) {
-                    Text(text = "Clear All Nicknames", style = MaterialTheme.typography.labelLarge)
-                }
+            }
+
+            // Attendance list section
+            Text(
+                "Recent Activity",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.align(Alignment.Start).padding(top = 8.dp, bottom = 4.dp)
+            )
+            Surface( // Kept Surface wrapper from previous version
+                shape = MaterialTheme.shapes.large,
+                tonalElevation = 2.dp,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+            ) {
                 TagAttendanceList(
                     tagNicknames = tagNicknames,
-                    tagHistory = tagHistory
+                    tagHistory = tagHistory,
+                    modifier = Modifier.padding(vertical = 8.dp)
                 )
+            }
+
+            Button(
+                onClick = {
+                    clearNicknames()
+                    coroutineScope.launch {
+                        snackbarHostState.showSnackbar("All nicknames cleared")
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                shape = MaterialTheme.shapes.medium
+            ) {
+                Icon(Icons.Filled.Delete, contentDescription = null)
+                Spacer(Modifier.width(10.dp))
+                Text("Clear All Nicknames")
             }
         }
     }

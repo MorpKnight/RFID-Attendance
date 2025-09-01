@@ -28,11 +28,11 @@ fun HomeMenu(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Button(onClick = onAttendanceClick, modifier = Modifier.fillMaxWidth()) {
-            Text("Attendance")
+            Text("Attendance History")
         }
         Spacer(modifier = Modifier.height(24.dp))
         Button(onClick = onBorrowClick, modifier = Modifier.fillMaxWidth()) {
-            Text("Borrow Items")
+            Text("Borrow Log History")
         }
     }
 }
