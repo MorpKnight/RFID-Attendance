@@ -1,0 +1,44 @@
+# Nama workflow
+name: Publish APK to GitHub Packages
+
+# Pemicu: berjalan saat ada push ke branch 'main'
+on:
+  push:
+    branches:
+      - main
+
+# Pekerjaan yang akan dilakukan
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    
+    # Izin yang diperlukan agar workflow bisa menulis ke Packages
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      # Langkah 1: Checkout kode dari repositori
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Langkah 2: Setup Java Development Kit (JDK) versi 11
+      - name: Set up JDK 11
+        uses: actions/setup-java@v4
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+
+      # Langkah 3: Setup Gradle
+      # Ini akan meng-cache dependensi Gradle untuk mempercepat build berikutnya
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      # Langkah 4: Menjalankan tugas 'publish' dari Gradle
+      # Tugas ini akan mem-build dan mengunggah APK ke GitHub Packages
+      - name: Publish to GitHub Packages
+        run: ./gradlew publish
+        env:
+          # Token ini disediakan secara otomatis oleh GitHub Actions
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_ACTOR: ${{ github.actor }}
