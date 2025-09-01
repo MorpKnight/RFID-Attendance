@@ -34,6 +34,10 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
 
+      # LANGKAH TAMBAHAN: Memberikan izin eksekusi pada gradlew
+      - name: Make gradlew executable
+        run: chmod +x gradlew
+
       # Langkah 4: Menjalankan tugas 'publish' dari Gradle
       # Tugas ini akan mem-build dan mengunggah APK ke GitHub Packages
       - name: Publish to GitHub Packages
