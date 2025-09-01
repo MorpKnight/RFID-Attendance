@@ -17,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import java.text.SimpleDateFormat
 import java.util.*
@@ -29,43 +30,34 @@ fun TagAttendanceList(
 ) {
     val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
     val allTagIds = (tagNicknames.keys + tagHistory.map { it.substringBefore(",") }).toSet().filter { it.isNotBlank() }
+
     if (allTagIds.isNotEmpty()) {
-        LazyColumn( // Changed to direct call
-            modifier = modifier.fillMaxWidth(),
-        ) { // Removed content = { ... } as it's the trailing lambda
-            item {
-                Text(text = "Today's Attendance Status:", modifier = Modifier.padding(bottom = 8.dp))
-            }
-            items(allTagIds.size) { idx ->
-                val tagId = allTagIds.elementAt(idx)
+        Column(modifier = modifier.fillMaxWidth()) {
+            allTagIds.forEach { tagId ->
                 val nickname = tagNicknames[tagId] ?: "(No Nickname)"
                 val todayEntry = tagHistory.find {
                     val parts = it.split(",")
                     parts.size == 2 && parts[0] == tagId && parts[1].startsWith(today)
                 }
                 val status = if (todayEntry != null) "Checked in today" else "Not checked in today"
-                Card(
-                    elevation = CardDefaults.cardElevation(2.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp)
-                ) {
+                val statusColor = if (todayEntry != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+
+                Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
                     Row(
-                        modifier = Modifier.padding(12.dp),
+                        modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(text = "${nickname} (ID: $tagId)", modifier = Modifier.weight(1f))
-                        Text(text = status)
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(text = nickname, fontWeight = FontWeight.Bold)
+                            Text(text = "ID: $tagId", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f))
+                        }
+                        Text(text = status, color = statusColor, style = MaterialTheme.typography.bodyMedium)
                     }
                 }
-                Divider(
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                    color = MaterialTheme.colorScheme.outlineVariant,
-                    thickness = 0.5.dp
-                )
+                Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
             }
         }
     } else {
-        Spacer(modifier = Modifier.height(0.dp))
+        Text("No attendance data for today.", modifier = Modifier.padding(16.dp))
     }
 }

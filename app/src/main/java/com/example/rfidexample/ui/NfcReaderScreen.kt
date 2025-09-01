@@ -41,8 +41,7 @@ fun NfcReaderScreen(
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
-    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(rememberTopAppBarState()) // Re-add scroll behavior
-    val columnScrollState = rememberScrollState() // State for the Column's scroll
+    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(rememberTopAppBarState())
 
     val dictionaryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
@@ -58,7 +57,7 @@ fun NfcReaderScreen(
             if (updatedNicknames != null) {
                 clearNicknames()
                 updateAllNicknames(updatedNicknames)
-                 coroutineScope.launch {
+                coroutineScope.launch {
                     snackbarHostState.showSnackbar("Nicknames updated from Dictionary")
                 }
             }
@@ -70,7 +69,7 @@ fun NfcReaderScreen(
             .fillMaxSize()
             .nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
-            MediumTopAppBar(
+            TopAppBar(
                 title = { Text("RFID Attendance") },
                 actions = {
                     IconButton(onClick = {
@@ -83,8 +82,8 @@ fun NfcReaderScreen(
                     }
                 },
                 scrollBehavior = scrollBehavior,
-                colors = TopAppBarDefaults.mediumTopAppBarColors(
-                    containerColor = Color.Transparent,
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
                     scrolledContainerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp)
                 )
             )
@@ -95,10 +94,11 @@ fun NfcReaderScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(horizontal = 20.dp, vertical = 16.dp),
+                .padding(horizontal = 16.dp)
+                .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
+            Spacer(modifier = Modifier.height(16.dp))
             // Nickname input section
             if (currentTagId != null && !tagNicknames.containsKey(currentTagId)) {
                 NicknameInput(
@@ -111,28 +111,26 @@ fun NfcReaderScreen(
                     },
                     modifier = Modifier.fillMaxWidth()
                 )
+                Spacer(modifier = Modifier.height(16.dp))
             }
 
             // Action Buttons section
             Card(
                 shape = MaterialTheme.shapes.large,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                elevation = CardDefaults.cardElevation(2.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
                     modifier = Modifier.padding(16.dp)
                 ) {
                     Button(
                         onClick = onNavigateToHistory,
                         modifier = Modifier.fillMaxWidth(),
-                        shape = MaterialTheme.shapes.medium
                     ) {
                         Icon(Icons.Filled.History, contentDescription = null)
-                        Spacer(Modifier.width(10.dp))
+                        Spacer(Modifier.width(8.dp))
                         Text("View Full Attendance History")
                     }
+                    Spacer(modifier = Modifier.height(8.dp))
                     OutlinedButton(
                         onClick = {
                             val intent = Intent()
@@ -141,36 +139,28 @@ fun NfcReaderScreen(
                             dictionaryLauncher.launch(intent)
                         },
                         modifier = Modifier.fillMaxWidth(),
-                        shape = MaterialTheme.shapes.medium
                     ) {
                         Icon(Icons.AutoMirrored.Filled.ListAlt, contentDescription = null)
-                        Spacer(Modifier.width(10.dp))
-                        Text("Manage Nicknames (Dictionary)")
+                        Spacer(Modifier.width(8.dp))
+                        Text("Manage Nicknames")
                     }
                 }
             }
+            Spacer(modifier = Modifier.height(24.dp))
 
             // Attendance list section
             Text(
                 "Recent Activity",
                 style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.align(Alignment.Start).padding(top = 8.dp, bottom = 4.dp)
+                modifier = Modifier.align(Alignment.Start)
             )
-            Surface( // Kept Surface wrapper from previous version
-                shape = MaterialTheme.shapes.large,
-                tonalElevation = 2.dp,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-            ) {
-                TagAttendanceList(
-                    tagNicknames = tagNicknames,
-                    tagHistory = tagHistory,
-                    modifier = Modifier.padding(vertical = 8.dp)
-                )
-            }
-
+            Spacer(modifier = Modifier.height(8.dp))
+            TagAttendanceList(
+                tagNicknames = tagNicknames,
+                tagHistory = tagHistory
+            )
+            Spacer(modifier = Modifier.weight(1f))
+            // Spacer to push the button to the bottom
             Button(
                 onClick = {
                     clearNicknames()
@@ -181,11 +171,10 @@ fun NfcReaderScreen(
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 8.dp),
-                shape = MaterialTheme.shapes.medium
+                    .padding(vertical = 16.dp),
             ) {
                 Icon(Icons.Filled.Delete, contentDescription = null)
-                Spacer(Modifier.width(10.dp))
+                Spacer(Modifier.width(8.dp))
                 Text("Clear All Nicknames")
             }
         }
