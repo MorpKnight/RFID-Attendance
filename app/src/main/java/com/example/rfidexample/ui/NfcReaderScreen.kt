@@ -17,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.example.rfidexample.ui.components.AppTopBar
 import com.example.rfidexample.ui.components.NicknameInput
 import com.example.rfidexample.ui.components.TagAttendanceList
 import kotlinx.coroutines.launch
@@ -70,7 +71,7 @@ fun NfcReaderScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("RFID Example") },
+                title = { Text("RFID Attendance", style = MaterialTheme.typography.titleLarge) },
                 actions = {
                     IconButton(onClick = {
                         updateHistory(emptyList())
@@ -86,74 +87,87 @@ fun NfcReaderScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         modifier = modifier
     ) { innerPadding ->
-        Column(
+        Surface(
+            color = MaterialTheme.colorScheme.background,
             modifier = Modifier
                 .fillMaxSize()
+                .padding(12.dp)
                 .padding(innerPadding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.Top,
-            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Card(
-                elevation = CardDefaults.cardElevation(4.dp),
-                modifier = Modifier.fillMaxWidth()
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.fillMaxSize()
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(text = tagData)
+                Card(
+                    shape = MaterialTheme.shapes.large,
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(6.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        Text(text = tagData, style = MaterialTheme.typography.headlineLarge)
+                    }
                 }
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-            if (currentTagId != null && !tagNicknames.containsKey(currentTagId)) {
-                NicknameInput(
-                    currentTagId = currentTagId,
-                    onSave = { nickname ->
-                        addNickname(currentTagId, nickname)
-                        coroutineScope.launch {
-                            snackbarHostState.showSnackbar("Nickname saved")
+                if (currentTagId != null && !tagNicknames.containsKey(currentTagId)) {
+                    NicknameInput(
+                        currentTagId = currentTagId,
+                        onSave = { nickname ->
+                            addNickname(currentTagId, nickname)
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar("Nickname saved")
+                            }
                         }
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Button(
+                        onClick = {
+                            val intent = Intent(context, Class.forName("com.example.rfidexample.HistoryActivity"))
+                            intent.putStringArrayListExtra("history", ArrayList(tagHistory))
+                            val nicknamesBundle = android.os.Bundle()
+                            tagNicknames.forEach { (id, nickname) ->
+                                nicknamesBundle.putString(id, nickname)
+                            }
+                            intent.putExtra("nicknames", nicknamesBundle)
+                            launcher.launch(intent)
+                        },
+                        shape = MaterialTheme.shapes.medium
+                    ) {
+                        Icon(Icons.Filled.History, contentDescription = null)
+                        Spacer(Modifier.width(6.dp))
+                        Text(text = "View History", style = MaterialTheme.typography.labelLarge)
                     }
+                    Button(
+                        onClick = {
+                            val intent = Intent(context, Class.forName("com.example.rfidexample.DictionaryActivity"))
+                            intent.putExtra("nicknames", HashMap(tagNicknames))
+                            dictionaryLauncher.launch(intent)
+                        },
+                        shape = MaterialTheme.shapes.medium
+                    ) {
+                        Icon(Icons.Filled.Menu, contentDescription = null)
+                        Spacer(Modifier.width(6.dp))
+                        Text("Dictionary", style = MaterialTheme.typography.labelLarge)
+                    }
+                }
+                Button(
+                    onClick = {
+                        clearNicknames()
+                        coroutineScope.launch {
+                            snackbarHostState.showSnackbar("All nicknames cleared")
+                        }
+                    },
+                    shape = MaterialTheme.shapes.medium,
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text(text = "Clear All Nicknames", style = MaterialTheme.typography.labelLarge)
+                }
+                TagAttendanceList(
+                    tagNicknames = tagNicknames,
+                    tagHistory = tagHistory
                 )
-                Spacer(modifier = Modifier.height(16.dp))
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = {
-                    val intent = Intent(context, Class.forName("com.example.rfidexample.HistoryActivity"))
-                    intent.putStringArrayListExtra("history", ArrayList(tagHistory))
-                    val nicknamesBundle = android.os.Bundle()
-                    tagNicknames.forEach { (id, nickname) ->
-                        nicknamesBundle.putString(id, nickname)
-                    }
-                    intent.putExtra("nicknames", nicknamesBundle)
-                    launcher.launch(intent)
-                }) {
-                    Icon(Icons.Filled.History, contentDescription = null)
-                    Spacer(Modifier.width(4.dp))
-                    Text(text = "View History")
-                }
-                Button(onClick = {
-                    val intent = Intent(context, Class.forName("com.example.rfidexample.DictionaryActivity"))
-                    intent.putExtra("nicknames", HashMap(tagNicknames))
-                    dictionaryLauncher.launch(intent)
-                }) {
-                    Icon(Icons.Filled.Menu, contentDescription = null)
-                    Spacer(Modifier.width(4.dp))
-                    Text("Dictionary")
-                }
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-            Button(onClick = {
-                clearNicknames()
-                coroutineScope.launch {
-                    snackbarHostState.showSnackbar("All nicknames cleared")
-                }
-            }) {
-                Text(text = "Clear All Nicknames")
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-            TagAttendanceList(
-                tagNicknames = tagNicknames,
-                tagHistory = tagHistory
-            )
         }
     }
 }

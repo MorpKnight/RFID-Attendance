@@ -62,4 +62,5 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
     implementation(platform(libs.androidx.compose.bom)) // Ensure this is present
     implementation("androidx.compose.material:material-icons-extended")
+    implementation("io.coil-kt:coil-compose:2.6.0")
 }
