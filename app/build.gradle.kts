@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     kotlin("plugin.serialization") version "2.0.21"
+    id("maven-publish") // TAMBAHKAN PLUGIN INI
 }
 
 android {
@@ -41,11 +42,10 @@ android {
 }
 
 dependencies {
+    // (Dependencies Anda tetap sama)
     implementation("androidx.navigation:navigation-compose:2.7.7")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.3")
-    // PENAMBAHAN DEPENDENSI ANIMASI BARU
-    implementation("androidx.compose.animation:animation:1.6.8") // Versi stabil terbaru
-
+    implementation("androidx.compose.animation:animation:1.6.8")
     implementation("androidx.activity:activity-ktx:1.9.0")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
@@ -66,4 +66,28 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
     implementation("androidx.compose.material:material-icons-extended")
     implementation("io.coil-kt:coil-compose:2.6.0")
+}
+
+// TAMBAHKAN BLOK PUBLISHING DI BAWAH INI
+afterEvaluate {
+    publishing {
+        publications {
+            create<MavenPublication>("release") {
+                from(components.findByName("release"))
+                groupId = "com.github.MorpKnight" // Ganti dengan username atau organisasi GitHub Anda
+                artifactId = "rfid-attendance-apk" // Nama artefak
+                version = "1.0.0" // Versi awal, bisa dibuat dinamis
+            }
+        }
+        repositories {
+            maven {
+                name = "GitHubPackages"
+                url = uri("https://maven.pkg.github.com/MorpKnight/RFID-Attendance") // Ganti dengan URL repo Anda
+                credentials {
+                    username = System.getenv("GITHUB_ACTOR")
+                    password = System.getenv("GITHUB_TOKEN")
+                }
+            }
+        }
+    }
 }
