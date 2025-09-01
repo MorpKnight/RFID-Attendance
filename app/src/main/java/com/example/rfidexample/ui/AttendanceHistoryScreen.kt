@@ -5,11 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.FilterList
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -95,6 +91,7 @@ fun AttendanceHistoryScreen(
         }
     ) { innerPadding ->
         Column(modifier = Modifier.padding(innerPadding)) {
+            // FilterAndSortControls composable remains unchanged
             FilterAndSortControls(
                 searchQuery = searchQuery,
                 onSearchQueryChange = { searchQuery = it },
@@ -137,7 +134,27 @@ fun AttendanceHistoryScreen(
         }
     }
 
-    // Dialog konfirmasi (sama seperti di HistoryScreen)
+    if (showClearConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showClearConfirmDialog = false },
+            title = { Text("Konfirmasi") },
+            text = { Text("Apakah Anda yakin ingin menghapus semua riwayat absensi?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onClearHistory()
+                        showClearConfirmDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Hapus Semua")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearConfirmDialog = false }) {
+                    Text("Batal")
+                }
+            }
+        )
+    }
 }
-
-// Composable FilterAndSortControls dan enum SortOption (gunakan yang sama dari HistoryScreen)
