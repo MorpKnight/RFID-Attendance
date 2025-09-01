@@ -32,7 +32,7 @@ fun PeminjamanBarangScreen(
     onNavigateToHistory: () -> Unit
 ) {
     var selectedItem by remember { mutableStateOf("") }
-    val items = listOf("Proyektor", "Kabel HDMI", "Laptop", "Charger")
+    val items = listOf("ESP32", "Arduino", "Sensor", "Breadboard", "Lainnya")
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
 

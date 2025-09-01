@@ -41,9 +41,10 @@ android {
 }
 
 dependencies {
-    // PENAMBAHAN DEPENDENSI BARU UNTUK NAVIGASI
     implementation("androidx.navigation:navigation-compose:2.7.7")
-    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.3") // Untuk collectAsStateWithLifecycle
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.3")
+    // PENAMBAHAN DEPENDENSI ANIMASI BARU
+    implementation("androidx.compose.animation:animation:1.6.8") // Versi stabil terbaru
 
     implementation("androidx.activity:activity-ktx:1.9.0")
     implementation(libs.androidx.core.ktx)

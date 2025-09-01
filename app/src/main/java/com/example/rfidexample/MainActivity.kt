@@ -7,22 +7,26 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.rfidexample.ui.*
 import com.example.rfidexample.ui.theme.RFIDExampleTheme
 
+// Variabel global untuk menyimpan NavController
+// Ini adalah workaround untuk mengakses NavController dari onNewIntent
+// yang berada di luar Composable.
+private var globalNavController: NavHostController? = null
+
 class MainActivity : ComponentActivity() {
     private var nfcAdapter: NfcAdapter? = null
     private val viewModel: MainViewModel by viewModels()
-    private var currentRoute: String? by mutableStateOf(null) // Store current route
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -31,8 +35,8 @@ class MainActivity : ComponentActivity() {
         setContent {
             RFIDExampleTheme {
                 val navController = rememberNavController()
-                val navBackStackEntry by navController.currentBackStackEntryAsState()
-                currentRoute = navBackStackEntry?.destination?.route // Update currentRoute
+                // Set NavController ke variabel global
+                globalNavController = navController
 
                 val tagData by viewModel.tagData.collectAsStateWithLifecycle()
                 val currentTagId by viewModel.currentTagId.collectAsStateWithLifecycle()
@@ -41,7 +45,34 @@ class MainActivity : ComponentActivity() {
                 val borrowLogs by viewModel.borrowLogs.collectAsStateWithLifecycle()
                 val scannedBorrowTagId by viewModel.scannedBorrowTagId.collectAsStateWithLifecycle()
 
-                NavHost(navController = navController, startDestination = "home") {
+                NavHost(
+                    navController = navController,
+                    startDestination = "home",
+                    enterTransition = {
+                        slideInHorizontally(
+                            initialOffsetX = { fullWidth -> fullWidth }, // Slide in from the right
+                            animationSpec = tween(300)
+                        )
+                    },
+                    exitTransition = {
+                        slideOutHorizontally(
+                            targetOffsetX = { fullWidth -> -fullWidth }, // Slide out to the left
+                            animationSpec = tween(300)
+                        )
+                    },
+                    popEnterTransition = {
+                        slideInHorizontally(
+                            initialOffsetX = { fullWidth -> -fullWidth }, // Slide in from the left
+                            animationSpec = tween(300)
+                        )
+                    },
+                    popExitTransition = {
+                        slideOutHorizontally(
+                            targetOffsetX = { fullWidth -> fullWidth }, // Slide out to the right
+                            animationSpec = tween(300)
+                        )
+                    }
+                ) {
                     composable("home") {
                         HomeMenu(
                             onAttendanceClick = { navController.navigate("attendance") },
@@ -114,17 +145,10 @@ class MainActivity : ComponentActivity() {
         val tag: android.nfc.Tag? = intent.getParcelableExtra(NfcAdapter.EXTRA_TAG)
         tag?.let {
             val uid = it.id.joinToString(":") { b -> "%02X".format(b) }
-            // Use the currentRoute property that is updated by Compose
+
+            // Ambil rute saat ini dari globalNavController
+            val currentRoute = globalNavController?.currentBackStackEntry?.destination?.route
             viewModel.handleNfcTag(uid, currentRoute)
         }
     }
-
-    // You can remove getTopmostRoute() if you use the approach above
-    // private fun getTopmostRoute(): String? {
-    //     // Implementasi ini adalah workaround dan mungkin perlu disesuaikan
-    //     // jika struktur navigasi menjadi lebih kompleks (misalnya nested navigation).
-    //     val navHostFragment = supportFragmentManager.findFragmentById(android.R.id.content)
-    //     val currentNavController = navHostFragment?.findNavController()
-    //     return currentNavController?.currentDestination?.route
-    // }
 }
